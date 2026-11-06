@@ -4,6 +4,7 @@ const recursiveReaddir = require('recursive-readdir');
 const { orderBy } = require('natural-orderby');
 const { joinFragments } = require('../routes/utils/url');
 const { config } = require('../config');
+const { KIKOETA_LYRIC_SUFFIX } = require('./kikoetaLyrics');
 
 const supportedMediaExtList = ['.mp3', '.ogg', '.opus', '.wav', '.aac', '.flac', '.webm', '.mp4', '.m4a', '.mka'];
 const supportedSubtitleExtList = ['.lrc', '.srt', '.ass', ".vtt"]; // '.ass' only support show on file list, not for play lyric
@@ -130,7 +131,7 @@ const getTrackList = async function (id, dir, readMemo) {
       );
     });
 
-    // Sort by folder and title
+    // Sort by folder and title, keeping generated lyrics after existing media indices.
     const sortedFiles = orderBy(filteredFiles.map((file) => {
       const shortFilePath = file.replace(path.join(dir, '/'), '');
       const dirName = path.dirname(shortFilePath);
@@ -142,7 +143,7 @@ const getTrackList = async function (id, dir, readMemo) {
         fullPath: file, // 给后面获取音频时长提供文件的全路径
         shortFilePath,
       };
-    }), [v => v.subtitle, v => v.title, v => v.ext]);
+    }), [v => Number(v.title.endsWith(KIKOETA_LYRIC_SUFFIX)), v => v.subtitle, v => v.title, v => v.ext]);
 
     // Add hash to each file
     const sortedHashedFiles = sortedFiles.map(
@@ -375,4 +376,5 @@ module.exports = {
   saveCoverImageToDisk,
   formatID,
   scrapeWorkMemo,
+  supportedMediaExtList,
 };
