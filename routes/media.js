@@ -115,17 +115,32 @@ router.get('/download/:id/:index',
       });
 });
 
+function writebackError(res, status, code) {
+  return res.set('X-Kikoeru-Writeback-Error', code).status(status).send({ code });
+}
+
 function allowKikoetaLyrics(req, res, next) {
-  const { enabled, keyHash } = getWritebackConfig(config);
-  if (!enabled || (config.auth && !keyHash)) {
-    return res.sendStatus(404);
-  }
-  const key = req.get('X-Kikoeru-Writeback-Key');
-  if (config.auth && (!req.user || !['user', 'administrator'].includes(req.user.group) || !matchesWritebackKey(key, keyHash))) {
-    return res.sendStatus(403);
+  const { enabled, keyHash, authMode } = getWritebackConfig(config);
+  if (!enabled) return writebackError(res, 404, 'writeback_disabled');
+  if (config.auth) {
+    if (!req.user) return writebackError(res, 401, 'login_required');
+    if (!['user', 'administrator'].includes(req.user.group)) return writebackError(res, 403, 'role_forbidden');
+    if (authMode === 'account_and_key') {
+      if (!keyHash) return writebackError(res, 503, 'writeback_unconfigured');
+      if (!matchesWritebackKey(req.get('X-Kikoeru-Writeback-Key'), keyHash)) {
+        return writebackError(res, 403, 'key_invalid');
+      }
+    }
   }
   next();
 }
+
+router.get('/kikoeta-lyrics/capabilities', (req, res) => {
+  const { enabled, authMode } = getWritebackConfig(config);
+  res.set('Cache-Control', 'no-store').send({
+    version: 3, enabled, authentication: config.auth ? authMode : 'none',
+  });
+});
 
 router.head('/kikoeta-lyrics', allowKikoetaLyrics, (req, res) =>
   res.set('X-Kikoeru-Lyrics-Writeback', '2').sendStatus(204));
@@ -139,17 +154,20 @@ router.put('/kikoeta-lyrics/:id',
     const parts = trackPathParts(req.query.trackPath);
     if (!parts || !supportedMediaExtList.includes(path.extname(parts[parts.length - 1]).toLowerCase())
         || typeof req.body !== 'string' || !req.body.trim()) {
-      return res.sendStatus(400);
+      return res.status(400).send({ code: 'invalid_request' });
     }
     try {
       const work = await db.knex('t_work').select('root_folder', 'dir').where('id', req.params.id).first();
       const root = work && config.rootFolders.find(folder => folder.name === work.root_folder);
-      if (!root || !await writeTrackLyric(root.path, work.dir, parts, req.body)) return res.sendStatus(404);
+      if (!root || !await writeTrackLyric(root.path, work.dir, parts, req.body)) return res.status(404).send({ code: 'source_unavailable' });
       await db.updateWorkAILyricStatus(true, '', req.params.id);
       return res.sendStatus(204);
     } catch (err) {
-      if (err.code === 'EEXIST') return res.sendStatus(409);
-      if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return res.sendStatus(404);
+      if (err.code === 'EEXIST') return res.status(409).send({ code: 'lyrics_conflict' });
+      if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return res.status(404).send({ code: 'source_unavailable' });
+      if (['EACCES', 'EPERM', 'EROFS', 'ENOSPC', 'ENOTSUP', 'EOPNOTSUPP', 'EXDEV'].includes(err.code)) {
+        return res.status(503).send({ code: 'directory_unwritable' });
+      }
       return next(err);
     }
   }

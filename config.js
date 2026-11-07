@@ -46,6 +46,7 @@ const defaultConfig = {
   auth: process.env.NODE_ENV === 'production' ? true : false,
   kikoetaWritebackEnabled: null,
   kikoetaWritebackKeyHash: '',
+  kikoetaWritebackAuth: null,
   md5secret: crypto.randomBytes(32).toString('hex'),
   jwtsecret: crypto.randomBytes(32).toString('hex'),
   expiresIn: 2592000,

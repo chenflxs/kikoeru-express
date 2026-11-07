@@ -8,8 +8,8 @@ const isAdmin = req => config.auth && req.user && req.user.name === 'admin';
 
 function writebackStatus(req) {
   if (config.auth && !isAdmin(req)) return null;
-  const { enabled, keyHash } = getWritebackConfig(config);
-  return { enabled, hasKey: Boolean(keyHash) };
+  const { enabled, keyHash, authMode } = getWritebackConfig(config);
+  return { enabled, hasKey: Boolean(keyHash), authMode };
 }
 
 const filterConfig = (_config, option = 'read') => {
@@ -19,6 +19,7 @@ const filterConfig = (_config, option = 'read') => {
   delete configClone.jwtsecret;
   delete configClone.kikoetaWritebackEnabled;
   delete configClone.kikoetaWritebackKeyHash;
+  delete configClone.kikoetaWritebackAuth;
   if (option === 'write') {
     delete configClone.production;
     if (process.env.NODE_ENV === 'production' || currentConfig.production) {
@@ -37,18 +38,22 @@ router.put('/admin', (req, res, next) => {
       if (Object.prototype.hasOwnProperty.call(req.body, 'kikoetaWriteback')) {
         // The enclosing route already applies the existing dashboard permissions.
         if (config.auth && !isAdmin(req)) return res.status(403).send({ error: '只有 admin 账号能修改写回设置。' });
-        const { enabled, key = '' } = req.body.kikoetaWriteback || {};
+        const { enabled, key = '', authMode = key ? 'account_and_key' : getWritebackConfig(config).authMode } = req.body.kikoetaWriteback || {};
+        if (!['account', 'account_and_key'].includes(authMode)) {
+          return res.status(400).send({ error: '请选择有效的写回验证方式。' });
+        }
         if (typeof enabled !== 'boolean' || (key !== '' && !validWritebackKey(key))) {
           return res.status(400).send({ error: '写回密钥必须是 16 位英文字母或数字。' });
         }
         const keyHash = key ? hashWritebackKey(key) : getWritebackConfig(config).keyHash;
         newConfig.kikoetaWritebackEnabled = enabled;
         newConfig.kikoetaWritebackKeyHash = keyHash;
+        newConfig.kikoetaWritebackAuth = authMode;
       }
       const nextConfig = { ...config, ...newConfig };
       const writeback = getWritebackConfig(nextConfig);
-      if (nextConfig.auth && writeback.enabled && !writeback.keyHash) {
-        return res.status(400).send({ error: '开启用户验证时，请设置 16 位写回密钥或关闭写回。' });
+      if (nextConfig.auth && writeback.enabled && writeback.authMode === 'account_and_key' && !writeback.keyHash) {
+        return res.status(400).send({ error: '请设置 16 位写回密钥，或选择使用站点账号。' });
       }
       setConfig(newConfig);
       res.send({ message: '保存成功.', kikoetaWriteback: writebackStatus(req) });

@@ -1,8 +1,8 @@
 diff --git a/src/pages/Dashboard/Advanced.vue b/src/pages/Dashboard/Advanced.vue
-index 560d84e..618f070 100644
+index 560d84e..d064172 100644
 --- a/src/pages/Dashboard/Advanced.vue
 +++ b/src/pages/Dashboard/Advanced.vue
-@@ -355,6 +355,66 @@
+@@ -355,6 +355,78 @@
        </q-list>
      </q-card>
  
@@ -24,6 +24,18 @@ index 560d84e..618f070 100644
 +        </q-item>
 +
 +        <q-item v-if="config.auth">
++          <q-item-section>
++            <q-item-label>验证方式</q-item-label>
++            <q-select
++              v-model="writebackAuthMode"
++              :options="writebackAuthOptions"
++              emit-value map-options dense
++              :disable="loading"
++            />
++          </q-item-section>
++        </q-item>
++
++        <q-item v-if="config.auth && writebackAuthMode === 'account_and_key'">
 +          <q-item-section>
 +            <q-item-label>写回密钥</q-item-label>
 +            <q-item-label caption>16 位英文字母或数字，保存前请复制到 Kikoeta 自建站设置</q-item-label>
@@ -57,7 +69,7 @@ index 560d84e..618f070 100644
 +            </q-input>
 +          </q-item-section>
 +        </q-item>
-+        <q-item v-else>
++        <q-item v-if="!config.auth">
 +          <q-item-section>
 +            <q-item-label caption>用户验证已关闭，写回时直接接受上传。</q-item-label>
 +          </q-item-section>
@@ -69,18 +81,23 @@ index 560d84e..618f070 100644
      <q-card class="q-ma-md">
        <q-toolbar>
          <q-toolbar-title>其它设置</q-toolbar-title>
-@@ -428,6 +488,10 @@ export default {
+@@ -428,6 +500,15 @@ export default {
        loading: false,
        rewindSeekTime: '5',
        forwardSeekTime: '30',
 +      kikoetaWritebackStatus: undefined,
 +      writebackEnabled: false,
++      writebackAuthMode: 'account',
++      writebackAuthOptions: [
++        { label: '使用站点账号（推荐）', value: 'account' },
++        { label: '站点账号＋写回密钥', value: 'account_and_key' }
++      ],
 +      writebackKey: '',
 +      showWritebackKey: false,
        
      }
    },
-@@ -441,10 +505,35 @@ export default {
+@@ -441,10 +522,36 @@ export default {
    },
  
    methods: {
@@ -104,6 +121,7 @@ index 560d84e..618f070 100644
 +    applyWritebackStatus (status) {
 +      this.kikoetaWritebackStatus = status
 +      this.writebackEnabled = Boolean(status && status.enabled)
++      this.writebackAuthMode = status && (status.authMode || (status.hasKey ? 'account_and_key' : 'account')) || 'account'
 +      this.writebackKey = ''
 +      this.showWritebackKey = false
 +    },
@@ -116,14 +134,18 @@ index 560d84e..618f070 100644
            // Integer => String
            this.rewindSeekTime = this.config.rewindSeekTime.toString()
            this.forwardSeekTime = this.config.forwardSeekTime.toString()
-@@ -466,12 +555,17 @@ export default {
+@@ -466,12 +573,21 @@ export default {
        this.config.rewindSeekTime = parseInt(this.rewindSeekTime)
        this.config.forwardSeekTime = parseInt(this.forwardSeekTime)
  
 +      const payload = { config: this.config }
 +      const status = this.kikoetaWritebackStatus
-+      if (status && (this.writebackEnabled !== status.enabled || (this.config.auth && this.writebackKey))) {
-+        payload.kikoetaWriteback = { enabled: this.writebackEnabled, key: this.config.auth ? this.writebackKey : '' }
++      if (status) {
++        payload.kikoetaWriteback = {
++          enabled: this.writebackEnabled,
++          authMode: this.writebackAuthMode,
++          key: this.config.auth && this.writebackAuthMode === 'account_and_key' ? this.writebackKey : ''
++        }
 +      }
 +
        this.loading = true
