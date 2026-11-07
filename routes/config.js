@@ -7,7 +7,7 @@ const { getWritebackConfig, hashWritebackKey, validWritebackKey } = require('../
 const isAdmin = req => config.auth && req.user && req.user.name === 'admin';
 
 function writebackStatus(req) {
-  if (!isAdmin(req)) return null;
+  if (config.auth && !isAdmin(req)) return null;
   const { enabled, keyHash } = getWritebackConfig(config);
   return { enabled, hasKey: Boolean(keyHash) };
 }
@@ -35,17 +35,20 @@ router.put('/admin', (req, res, next) => {
       // Note: setConfig uses Object.assign to merge new configs
       const newConfig = filterConfig(req.body.config, 'write');
       if (Object.prototype.hasOwnProperty.call(req.body, 'kikoetaWriteback')) {
-        if (!isAdmin(req)) return res.status(403).send({ error: '请启用用户验证并使用 admin 登录。' });
+        // The enclosing route already applies the existing dashboard permissions.
+        if (config.auth && !isAdmin(req)) return res.status(403).send({ error: '只有 admin 账号能修改写回设置。' });
         const { enabled, key = '' } = req.body.kikoetaWriteback || {};
         if (typeof enabled !== 'boolean' || (key !== '' && !validWritebackKey(key))) {
           return res.status(400).send({ error: '写回密钥必须是 16 位英文字母或数字。' });
         }
         const keyHash = key ? hashWritebackKey(key) : getWritebackConfig(config).keyHash;
-        if (enabled && !keyHash) {
-          return res.status(400).send({ error: '请先设置 16 位写回密钥。' });
-        }
         newConfig.kikoetaWritebackEnabled = enabled;
         newConfig.kikoetaWritebackKeyHash = keyHash;
+      }
+      const nextConfig = { ...config, ...newConfig };
+      const writeback = getWritebackConfig(nextConfig);
+      if (nextConfig.auth && writeback.enabled && !writeback.keyHash) {
+        return res.status(400).send({ error: '开启用户验证时，请设置 16 位写回密钥或关闭写回。' });
       }
       setConfig(newConfig);
       res.send({ message: '保存成功.', kikoetaWriteback: writebackStatus(req) });

@@ -117,11 +117,11 @@ router.get('/download/:id/:index',
 
 function allowKikoetaLyrics(req, res, next) {
   const { enabled, keyHash } = getWritebackConfig(config);
-  if (!config.auth || !enabled || !keyHash) {
+  if (!enabled || (config.auth && !keyHash)) {
     return res.sendStatus(404);
   }
   const key = req.get('X-Kikoeru-Writeback-Key');
-  if (!req.user || !['user', 'administrator'].includes(req.user.group) || !matchesWritebackKey(key, keyHash)) {
+  if (config.auth && (!req.user || !['user', 'administrator'].includes(req.user.group) || !matchesWritebackKey(key, keyHash))) {
     return res.sendStatus(403);
   }
   next();

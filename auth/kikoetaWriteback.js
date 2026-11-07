@@ -19,7 +19,7 @@ function getWritebackConfig(config) {
   // The first explicit save in the dashboard takes precedence over the old env settings.
   const key = process.env.KIKOERU_KIKOETA_WRITEBACK_KEY;
   return {
-    enabled: process.env.KIKOERU_KIKOETA_WRITEBACK === '1' && validWritebackKey(key),
+    enabled: process.env.KIKOERU_KIKOETA_WRITEBACK === '1',
     keyHash: validWritebackKey(key) ? hashWritebackKey(key) : '',
   };
 }
