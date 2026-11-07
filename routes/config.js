@@ -53,7 +53,7 @@ router.put('/admin', (req, res, next) => {
       const nextConfig = { ...config, ...newConfig };
       const writeback = getWritebackConfig(nextConfig);
       if (nextConfig.auth && writeback.enabled && writeback.authMode === 'account_and_key' && !writeback.keyHash) {
-        return res.status(400).send({ error: '请设置 16 位写回密钥，或选择使用站点账号。' });
+        return res.status(400).send({ error: '请设置 16 位写回密钥，或关闭密钥验证。' });
       }
       setConfig(newConfig);
       res.send({ message: '保存成功.', kikoetaWriteback: writebackStatus(req) });
