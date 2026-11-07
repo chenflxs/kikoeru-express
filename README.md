@@ -36,7 +36,11 @@ PWA的优点：基本页面零延迟，可以像手机APP一样通过浏览器�
 
 ### Kikoeta 翻译歌词写回
 
-启用 Kikoeru 的登录认证，设置环境变量 `KIKOERU_KIKOETA_WRITEBACK=1`，并在 `KIKOERU_KIKOETA_WRITEBACK_KEY` 中设置 16 位英文字母或数字组成的密钥，区分大小写。在 Kikoeta 中用该站的 `admin` 账号登录，并在「设置 → 编辑自建站 → 歌词写回密钥」填入相同的值。跨公网连接请使用 HTTPS。
+启用 Kikoeru 的用户验证后，以 `admin` 登录网页后台。在「高级设置 → Kikoeta Transl 歌词写回」开启「保存到音轨目录」，填写由 16 位英文字母或数字组成的密钥，然后保存。密钥区分大小写。在 Kikoeta 中用该站的 `admin` 账号登录，并在「设置 → 编辑自建站 → 歌词写回密钥」填入相同的值。跨公网连接请使用 HTTPS。
+
+可点「生成」填入随机密钥，用眼睛按钮切换显示或隐藏。保存前请复制密钥。网页设置保存在服务端配置中，密钥只保存校验摘要。首次保存写回设置前，兼容原有 `KIKOERU_KIKOETA_WRITEBACK` 和 `KIKOERU_KIKOETA_WRITEBACK_KEY` 环境变量。网页保存后，以保存的配置为准。
+
+构建网页时，在 `kikoeru-quasar` 的公开 `alpha` 提交 `f3ab74b` 上用 `git apply --ignore-space-change <补丁路径>` 应用 [管理页补丁](patches/kikoeru-quasar-writeback-settings.patch)，再按原有流程将 SPA 或 PWA 构建产物放入 `dist`。单二进制构建使用同一份 `dist`。
 
 验证通过后，Kikoeta 完成翻译并保存本地歌词时，也会尝试把 LRC 写到音轨旁，例如 `音轨.mp3.kikoeta.lrc`。刷新作品页面后，Kikoeru 可通过原有的歌词查询找到它。已有同名写回文件会保留，已有匹配歌词也仍优先播放。
 

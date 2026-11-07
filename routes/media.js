@@ -1,5 +1,5 @@
 const express = require('express');
-const { timingSafeEqual } = require('crypto');
+const { getWritebackConfig, matchesWritebackKey } = require('../auth/kikoetaWriteback');
 const router = express.Router();
 const { config } = require('../config');
 const db = require('../database/db');
@@ -115,18 +115,13 @@ router.get('/download/:id/:index',
       });
 });
 
-function validWritebackKey(key) {
-  return typeof key === 'string' && key.length === 16 && /^[A-Za-z0-9]{16}$/.test(key);
-}
-
 function allowKikoetaLyrics(req, res, next) {
-  const expectedKey = process.env.KIKOERU_KIKOETA_WRITEBACK_KEY;
-  if (process.env.KIKOERU_KIKOETA_WRITEBACK !== '1' || !config.auth || !validWritebackKey(expectedKey)) {
+  const { enabled, keyHash } = getWritebackConfig(config);
+  if (!config.auth || !enabled || !keyHash) {
     return res.sendStatus(404);
   }
   const key = req.get('X-Kikoeru-Writeback-Key');
-  if (!req.user || req.user.name !== 'admin' || !validWritebackKey(key)
-      || !timingSafeEqual(Buffer.from(expectedKey), Buffer.from(key))) {
+  if (!req.user || req.user.name !== 'admin' || !matchesWritebackKey(key, keyHash)) {
     return res.sendStatus(403);
   }
   next();
