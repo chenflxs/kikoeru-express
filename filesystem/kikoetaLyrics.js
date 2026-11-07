@@ -39,7 +39,15 @@ async function writeTrackLyric(root, workDir, parts, content) {
       await file.close();
     }
     // Publish only a complete lyric, with exclusive creation even on retries.
-    await fs.link(temporary, destination);
+    try {
+      await fs.link(temporary, destination);
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+      const existing = await fs.lstat(destination);
+      const contentBytes = Buffer.from(content, 'utf8');
+      if (!existing.isFile() || existing.size !== contentBytes.length
+          || !contentBytes.equals(await fs.readFile(destination))) throw err;
+    }
   } finally {
     await fs.unlink(temporary).catch(err => console.error('Kikoeta lyric temporary file cleanup failed:', err.code));
   }

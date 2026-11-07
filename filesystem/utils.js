@@ -37,6 +37,24 @@ async function getAudioFileDuration(filePath) {
 }
 const getAudioFileDurationLimited = (filePath) => limitP.call(getAudioFileDuration, filePath);
 
+function lyricFileStatus(files) {
+  let isContainLyric = false;
+  let isContainAILyric = false;
+  for (const file of files) {
+    if (!supportedSubtitleExtList.includes(path.extname(file).toLowerCase())) continue;
+    if (file.toLowerCase().endsWith(KIKOETA_LYRIC_SUFFIX)) {
+      isContainAILyric = true;
+    } else {
+      isContainLyric = true;
+    }
+  }
+  return { isContainLyric, isContainAILyric };
+}
+
+async function getLyricFileStatus(dir) {
+  return lyricFileStatus(await recursiveReaddir(dir));
+}
+
 // 是否包含字幕
 // @param {Number} id Work identifier. Currently, RJ/RE code.
 // @param {String} dir Work directory (absolute).
@@ -69,13 +87,10 @@ async function scrapeWorkMemo(work_id, dir, oldMemo) {
   // Filter out any files not matching these extensions
   const oldMemoMtime = oldMemo.mtime || {};
   const oldMemoDuration = oldMemo.duration || {};
-  const memo = { duration: {}, isContainLyric: false, mtime: {} };
+  const memo = { duration: {}, ...lyricFileStatus(files), mtime: {} };
   await Promise.all(files
     .filter((file) => {
       const ext = path.extname(file).toLowerCase();
-      if (supportedSubtitleExtList.includes(ext)) {
-        memo.isContainLyric = true;
-      }
       return supportedMediaExtList.includes(ext);
     }) // filter
     .map((file) => ({
@@ -369,6 +384,7 @@ function formatID(id) {
 
 module.exports = {
   isContainLyric,
+  getLyricFileStatus,
   getTrackList,
   toTree,
   getFolderList,

@@ -121,7 +121,7 @@ function allowKikoetaLyrics(req, res, next) {
     return res.sendStatus(404);
   }
   const key = req.get('X-Kikoeru-Writeback-Key');
-  if (!req.user || req.user.name !== 'admin' || !matchesWritebackKey(key, keyHash)) {
+  if (!req.user || !['user', 'administrator'].includes(req.user.group) || !matchesWritebackKey(key, keyHash)) {
     return res.sendStatus(403);
   }
   next();
@@ -145,6 +145,7 @@ router.put('/kikoeta-lyrics/:id',
       const work = await db.knex('t_work').select('root_folder', 'dir').where('id', req.params.id).first();
       const root = work && config.rootFolders.find(folder => folder.name === work.root_folder);
       if (!root || !await writeTrackLyric(root.path, work.dir, parts, req.body)) return res.sendStatus(404);
+      await db.updateWorkAILyricStatus(true, '', req.params.id);
       return res.sendStatus(204);
     } catch (err) {
       if (err.code === 'EEXIST') return res.sendStatus(409);
